@@ -34,7 +34,7 @@ def render_nudge(last_ai_response):
             if st.button("点此尝试一键精简"):
                 return "请将上述内容精简到 100 字以内。"
     elif st.session_state.group == 'B':
-        st.help("提示：若想提高协作质量，您可以点击‘精简’或要求 AI 使用‘通俗语气’。专业语气会使用更多术语。")
+        st.help("提示：若想提高协作质量，您可以要求AI用通俗语气。专业语气会使用更多术语。")
     return None
 
 def get_ai_response(chat_history):
