@@ -29,7 +29,7 @@ st.title("人-AI 协作元认知唤醒实验")
 st.sidebar.info(f"用户ID: {st.session_state.user_id}")
 st.sidebar.info(f"实验组别: {st.session_state.group}")
 
-task_prompt = "【高难度任务】请提供一段学术论文摘要，要求 AI 将其改写为“面向非专业人士”的科普短文。要求：逻辑严密、字数严格控制在 100-120 字之间。" [cite: 15]
+task_prompt = "【高难度任务】请提供一段学术论文摘要，要求 AI 将其改写为“面向非专业人士”的科普短文。要求：逻辑严密、字数严格控制在 100-120 字之间。" 
 st.warning(task_prompt)
 
 # --- 3. 不同组别的差异化 UI (助推设计) ---
