@@ -44,7 +44,7 @@ def render_nudge(last_ai_response):
                 
     elif st.session_state.group == 'B':
         # 实验组 B: 解释性说明 (补充元认知知识) 
-        st.help("提示：若想提高协作质量，您可以点击‘精简’或要求 AI 使用‘通俗语气’。专业语气会使用更多术语。")
+        st.help("提示:若想提高协作质量，您可以点击‘精简’或要求 AI 使用‘通俗语气’。专业语气会使用更多术语。")
     
     return None
 
