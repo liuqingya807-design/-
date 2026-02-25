@@ -1,0 +1,366 @@
+import streamlit as st
+import pandas as pd
+import json
+import uuid
+import random
+from datetime import datetime
+from openai import OpenAI
+import io
+
+# ==================== 初始化 ====================
+def init_session_state():
+    """初始化 session_state"""
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = str(uuid.uuid4())[:8]
+    
+    if "group" not in st.session_state:
+        st.session_state.group = random.choice(["Control", "A", "B"])
+    
+    if "log_data" not in st.session_state:
+        st.session_state.log_data = []
+    
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    
+    if "task_completed" not in st.session_state:
+        st.session_state.task_completed = False
+    
+    if "ai_content" not in st.session_state:
+        st.session_state.ai_content = ""
+    
+    if "selected_resume" not in st.session_state:
+        st.session_state.selected_resume = None
+
+# ==================== 简历数据 ====================
+RESUMES = {
+    "张三": {
+        "content": "教育背景：计算机科学学士\n工作经验：5年人力资源管理经验，主要负责招聘和员工培训\n技能：Excel、SAP人力资源系统\n成就：建立校园招聘渠道，提升招聘效率30%"
+    },
+    "李四": {
+        "content": "教育背景：心理学博士\n工作经验：8年人力资源咨询经验，组织发展专家\n技能：员工测评、组织文化建设、薪酬设计\n成就：为10家企业制定人才发展战略，员工满意度提升25%"
+    },
+    "王五": {
+        "content": "教育背景：MBA\n工作经验：3年初级HR\n技能：基础HR管理、招聘\n成就：完成200+个招聘项目"
+    },
+    "赵六": {
+        "content": "教育背景：人力资源管理学士\n工作经验：10年大型企业HR经理，管理500+员工\n技能：战略规划、全面薪酬管理、绩效管理、劳动关系\n成就：优化薪酬体系，降低离职率15%，获得最佳HR奖"
+    }
+}
+
+# ==================== AI 检测和验证函数 ====================
+def check_ai_response_quality(content: str) -> dict:
+    """检查 AI 回复质量"""
+    issues = []
+    
+    # 检查表格符号
+    if "|" not in content:
+        issues.append("未检测到表格符号 '|'，请使用 Markdown 表格格式")
+    
+    # 检查字数
+    char_count = len(content.replace(" ", "").replace("\n", ""))
+    if char_count > 600:
+        issues.append(f"内容字数过长（{char_count} 字 > 600 字限制），请精简内容")
+    
+    # 检查标准数量（通过计数 | 来估计行数）
+    lines = content.split("\n")
+    table_lines = [l for l in lines if "|" in l]
+    # 标准行应该是表格行数减去标题和分隔行
+    standard_lines = max(0, len(table_lines) - 2)
+    if standard_lines < 3:
+        issues.append(f"标准行数不足（需至少 3 行，当前 {standard_lines} 行）")
+    
+    return {
+        "is_valid": len(issues) == 0,
+        "issues": issues,
+        "char_count": char_count,
+        "table_lines": len(table_lines)
+    }
+
+# ==================== 日志记录 ====================
+def log_interaction(action: str, content: str = "", details: dict = None):
+    """记录交互"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "user_id": st.session_state.user_id,
+        "group": st.session_state.group,
+        "action": action,
+        "content": content[:200] if content else "",  # 截断长内容
+        "details": details or {}
+    }
+    st.session_state.log_data.append(log_entry)
+
+# ==================== AI 交互 ====================
+def call_deepseek_api(prompt: str) -> str:
+    """调用 DeepSeek API"""
+    try:
+        client = OpenAI(
+            api_key="sk-a05915657f7841b382145bc4c2e45749",
+            base_url="https://api.deepseek.com"
+        )
+        
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "你是一位专业的人力资源顾问，帮助HR经理进行招聘决策。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"API 调用出错：{str(e)}"
+
+# ==================== UI 组件 ====================
+def render_sidebar():
+    """侧边栏"""
+    with st.sidebar:
+        st.title("📋 实验信息")
+        
+        st.info(f"**用户 ID**: {st.session_state.user_id}\n\n**分配组别**: {st.session_state.group}")
+        
+        st.divider()
+        st.subheader("✅ 任务要求")
+        st.markdown("""
+        1. **选择候选人**：从4份简历中选择1位
+        2. **给出标准**：至少3个评估标准
+        3. **字数限制**：每个标准不超200字
+        4. **格式要求**：必须使用Markdown表格呈现
+        5. **专业性**：使用HR专业语言
+        """)
+        
+        st.divider()
+        st.subheader("📊 组别说明")
+        if st.session_state.group == "Control":
+            st.success("**Control组**：无任何干预，自主完成任务")
+        elif st.session_state.group == "A":
+            st.warning("**A组**：检测到错误时弹窗提示并提供修复建议")
+        else:  # B
+            st.info("**B组**：始终显示引导按钮，辅助优化回复")
+
+def render_resume_selection():
+    """简历选择区域"""
+    st.subheader("📄 候选人简历")
+    
+    cols = st.columns(4)
+    with cols[0]:
+        if st.button("张三", use_container_width=True, key="resume_张三"):
+            st.session_state.selected_resume = "张三"
+            log_interaction("select_resume", "张三")
+    with cols[1]:
+        if st.button("李四", use_container_width=True, key="resume_李四"):
+            st.session_state.selected_resume = "李四"
+            log_interaction("select_resume", "李四")
+    with cols[2]:
+        if st.button("王五", use_container_width=True, key="resume_王五"):
+            st.session_state.selected_resume = "王五"
+            log_interaction("select_resume", "王五")
+    with cols[3]:
+        if st.button("赵六", use_container_width=True, key="resume_赵六"):
+            st.session_state.selected_resume = "赵六"
+            log_interaction("select_resume", "赵六")
+    
+    if st.session_state.selected_resume:
+        st.success(f"✅ 已选择：{st.session_state.selected_resume}")
+        with st.expander("查看完整简历"):
+            st.write(RESUMES[st.session_state.selected_resume]["content"])
+
+def render_chat_interface():
+    """对话界面"""
+    if not st.session_state.selected_resume:
+        st.info("⬆️ 请先从上方选择一位候选人")
+        return
+    
+    # 消息显示区域
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+    
+    # 用户输入
+    user_input = st.chat_input("请输入您的分析...")
+    
+    if user_input:
+        # 添加用户消息
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        log_interaction("user_message", user_input)
+        
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        
+        # AI 回复
+        with st.chat_message("assistant"):
+            with st.spinner("AI 思考中..."):
+                prompt = f"""作为HR顾问，请对以下候选人进行专业评估：
+
+候选人：{st.session_state.selected_resume}
+简历信息：
+{RESUMES[st.session_state.selected_resume]['content']}
+
+用户意见：{user_input}
+
+请基于此提供：
+1. 至少3个HR相关评估标准
+2. 每个标准给出详细说明（不超200字）
+3. 必须使用Markdown表格格式呈现结果
+
+表格示例：
+| 评估标准 | 说明 |
+|--------|------|
+| 标准1 | 说明内容 |
+| 标准2 | 说明内容 |
+| 标准3 | 说明内容 |
+"""
+                ai_response = call_deepseek_api(prompt)
+                st.session_state.ai_content = ai_response
+                st.markdown(ai_response)
+                log_interaction("ai_response", ai_response)
+        
+        # ==================== A 组：错误检测 ====================
+        if st.session_state.group == "A":
+            quality_check = check_ai_response_quality(ai_response)
+            if not quality_check["is_valid"]:
+                # 显示警告
+                for issue in quality_check["issues"]:
+                    st.toast(f"⚠️ {issue}", icon="⚠️")
+                
+                # 修复建议按钮
+                st.divider()
+                st.subheader("🔧 检测到问题，以下是修复建议")
+                
+                cols = st.columns(2)
+                with cols[0]:
+                    if st.button("修复：添加/完善表格", key="fix_table"):
+                        with st.spinner("修复中..."):
+                            fix_prompt = f"请将以下内容改进为规范的Markdown表格格式，确保包含至少3行标准：\n\n{ai_response}"
+                            fixed = call_deepseek_api(fix_prompt)
+                            st.session_state.ai_content = fixed
+                            st.session_state.chat_history[-1]["content"] = fixed
+                            log_interaction("ai_fix", fixed, {"fix_type": "table"})
+                            st.success("✅ 已修复！")
+                            st.rerun()
+                
+                with cols[1]:
+                    if st.button("修复：精简字数", key="fix_length"):
+                        with st.spinner("修复中..."):
+                            fix_prompt = f"请精简以下内容至600字以内，保持专业性：\n\n{ai_response}"
+                            fixed = call_deepseek_api(fix_prompt)
+                            st.session_state.ai_content = fixed
+                            st.session_state.chat_history[-1]["content"] = fixed
+                            log_interaction("ai_fix", fixed, {"fix_type": "length"})
+                            st.success("✅ 已修复！")
+                            st.rerun()
+        
+        # ==================== B 组：引导按钮 ====================
+        elif st.session_state.group == "B":
+            st.divider()
+            st.subheader("💡 内容优化建议")
+            
+            cols = st.columns(3)
+            with cols[0]:
+                if st.button("强化 HR 专业语气", use_container_width=True, key="enhance_professional"):
+                    with st.spinner("优化中..."):
+                        enhance_prompt = f"请用更专业的HR术语和表述方式重新组织以下内容，保持原意不变：\n\n{ai_response}"
+                        enhanced = call_deepseek_api(enhance_prompt)
+                        st.session_state.ai_content = enhanced
+                        st.session_state.chat_history[-1]["content"] = enhanced
+                        log_interaction("ai_enhance", enhanced, {"enhance_type": "professional"})
+                        st.success("✅ 已优化！")
+                        st.rerun()
+            
+            with cols[1]:
+                if st.button("将结果转为表格", use_container_width=True, key="convert_table"):
+                    with st.spinner("转换中..."):
+                        table_prompt = f"请将以下内容重新组织为规范的Markdown表格，至少包含3行数据：\n\n{ai_response}"
+                        tabled = call_deepseek_api(table_prompt)
+                        st.session_state.ai_content = tabled
+                        st.session_state.chat_history[-1]["content"] = tabled
+                        log_interaction("ai_enhance", tabled, {"enhance_type": "table"})
+                        st.success("✅ 已转换！")
+                        st.rerun()
+            
+            with cols[2]:
+                if st.button("严格精简字数", use_container_width=True, key="strict_concise"):
+                    with st.spinner("精简中..."):
+                        concise_prompt = f"请将以下内容严格精简至600字以内，保持核心信息完整：\n\n{ai_response}"
+                        concised = call_deepseek_api(concise_prompt)
+                        st.session_state.ai_content = concised
+                        st.session_state.chat_history[-1]["content"] = concised
+                        log_interaction("ai_enhance", concised, {"enhance_type": "concise"})
+                        st.success("✅ 已精简！")
+                        st.rerun()
+
+# ==================== 导出功能 ====================
+def export_csv():
+    """导出数据为CSV"""
+    if not st.session_state.log_data:
+        st.warning("暂无数据记录")
+        return None
+    
+    df = pd.DataFrame(st.session_state.log_data)
+    csv = df.to_csv(index=False).encode('utf-8-sig')
+    return csv
+
+# ==================== 主程序 ====================
+def main():
+    st.set_page_config(
+        page_title="生成式AI默认效应实验",
+        page_icon="🔬",
+        layout="wide"
+    )
+    
+    st.title("🔬 生成式 AI 默认效应研究实验")
+    st.markdown("**研究 4**: HR 招聘决策中的 AI 默认效应")
+    
+    # 初始化
+    init_session_state()
+    
+    # 渲染侧边栏
+    render_sidebar()
+    
+    # 主要内容区域
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        render_resume_selection()
+    
+    with col2:
+        render_chat_interface()
+    
+    # 底部：导出按钮
+    st.divider()
+    st.subheader("📥 导出数据")
+    
+    cols = st.columns(2)
+    with cols[0]:
+        csv_data = export_csv()
+        if csv_data:
+            st.download_button(
+                label="下载实验数据 (CSV)",
+                data=csv_data,
+                file_name=f"experiment_data_{st.session_state.user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                key="download_csv"
+            )
+    
+    with cols[1]:
+        if st.button("✅ 结束实验并导出", key="end_experiment"):
+            st.session_state.task_completed = True
+            csv_data = export_csv()
+            if csv_data:
+                st.success("✅ 实验已完成！数据已导出")
+                log_interaction("experiment_completed")
+            else:
+                st.info("没有数据可导出")
+    
+    # 调试信息（可选）
+    with st.expander("📊 调试信息"):
+        st.json({
+            "user_id": st.session_state.user_id,
+            "group": st.session_state.group,
+            "log_count": len(st.session_state.log_data),
+            "selected_resume": st.session_state.selected_resume
+        })
+
+if __name__ == "__main__":
+    main()
