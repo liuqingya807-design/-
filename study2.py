@@ -19,6 +19,9 @@ if 'log_data' not in st.session_state:
     st.session_state.log_data = []
 if 'user_id' not in st.session_state:
     st.session_state.user_id = f"User_{random.randint(1000, 9999)}"
+# 初始化nudge_prompt会话状态，防止首次访问时报错
+if "nudge_prompt" not in st.session_state:
+    st.session_state.nudge_prompt = None
 
 st.title("人-AI 协作元认知唤醒实验")
 st.sidebar.info(f"用户ID: {st.session_state.user_id}")
@@ -35,6 +38,23 @@ def render_nudge(last_ai_response):
                 return "请将上述内容精简到 100 字以内。"
     elif st.session_state.group == 'B':
         st.info("提示：若想提高协作质量，您可以要求AI用通俗语气。专业语气会使用更多术语。")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+    # 语气调整按钮：使用📝图标，悬浮提示"调整为专业语气"
+            if st.button("📝", help="调整为专业语气"):
+                st.session_state.nudge_prompt = "请将上述内容改写为专业语气，保持专业术语的准确性。"
+                st.toast("已触发专业语气调整！", icon="📝")
+        with col2:
+    # 字数调整按钮：使用📏图标，悬浮提示"调整为100-120字"
+            if st.button("📏", help="调整为100-120字"):
+                st.session_state.nudge_prompt = f"请将上述内容精简/扩充到100-120字，保持核心信息完整。"
+                st.toast("已触发字数调整！", icon="📏")
+        with col3:
+    # 逻辑优化按钮：使用🧠图标，悬浮提示"优化逻辑清晰度"
+            if st.button("🧠", help="优化逻辑清晰度"):
+                st.session_state.nudge_prompt = "请优化上述内容的逻辑结构，使其更贴合非专业人士的阅读习惯，条理更清晰。"
+                st.toast("已触发逻辑优化！", icon="🧠")
     return None
 
 def get_ai_response(chat_history):
