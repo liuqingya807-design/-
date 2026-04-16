@@ -13,12 +13,12 @@ client = OpenAI(
 )
 
 # 简历图片链接（你自己填写 Imgur 链接）
-RESUME_IMAGES = {
-    "候选人1": "https://i.imgur.com/hfRjQTI.jpeg",  # 替换为你的公开Imgur链接
-    "候选人2": "https://i.imgur.com/dDM6Mt2.jpeg",
-    "候选人3": "https://i.imgur.com/O5cvFL9.jpeg",
-    "候选人4": "https://i.imgur.com/cyRqMzM.jpeg"
-}
+RESUME_IMAGES = [
+    "https://i.imgur.com/hfRjQTI.jpeg",  # 替换为你的公开Imgur链接
+    "https://i.imgur.com/dDM6Mt2.jpeg",
+    "https://i.imgur.com/O5cvFL9.jpeg",
+    ""https://i.imgur.com/cyRqMzM.jpeg"
+]
 
 # 初始化实验数据
 if 'messages' not in st.session_state:
