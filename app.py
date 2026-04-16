@@ -17,7 +17,7 @@ RESUME_IMAGES = [
     "https://i.imgur.com/hfRjQTI.jpeg",  # 替换为你的公开Imgur链接
     "https://i.imgur.com/dDM6Mt2.jpeg",
     "https://i.imgur.com/O5cvFL9.jpeg",
-    ""https://i.imgur.com/cyRqMzM.jpeg"
+    "https://i.imgur.com/cyRqMzM.jpeg"
 ]
 
 # 初始化实验数据
