@@ -8,8 +8,8 @@ st.set_page_config(page_title="Seed AI", layout="centered")
 
 # 直接配置 DeepSeek 接口
 client = OpenAI(
-    api_key="sk-d682e05c62534d439c05d1d9611b20e9",  # 你自己填写 API Key
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key="sk-f9fd213424cf41d29cf7c564be6ac48d",  # 你自己填写 API Key
+    base_url="https://api.deepseek.com"
 )
 
 # 简历图片链接（你自己填写 Imgur 链接）
@@ -109,7 +109,7 @@ st.divider()
 def fetch_ai_response(chat_history):
     try:
         response = client.chat.completions.create(
-            model="qwen-turbo",
+            model="deepseek-chat",
             messages=chat_history,
             temperature=0.7
         )
