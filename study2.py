@@ -7,7 +7,7 @@ from openai import OpenAI
 st.set_page_config(page_title="人-AI协作实验", layout="centered")
 
 client = OpenAI(
-    api_key="sk-a05915657f7841b382145bc4c2e45749", 
+    api_key="sk-f9fd213424cf41d29cf7c564be6ac48d", 
     base_url="https://api.deepseek.com"
 )
 
