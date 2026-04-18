@@ -8,7 +8,7 @@ st.set_page_config(page_title="Seed AI", layout="centered")
 
 # 直接配置 DeepSeek 接口
 client = OpenAI(
-    api_key="sk-a05915657f7841b382145bc4c2e45749",  # 你自己填写 API Key
+    api_key="sk-f9fd213424cf41d29cf7c564be6ac48d",  # 你自己填写 API Key
     base_url="https://api.deepseek.com"
 )
 
